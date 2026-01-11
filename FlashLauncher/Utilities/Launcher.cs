@@ -24,6 +24,27 @@ namespace HabboLauncher
 
             var doc = new XmlDocument();
             doc.Load(appXmlPath);
+            
+            // Update AIR namespace version for custom SWF compatibility
+            // Custom SWFs like HabboAirPlus spoof as AIR 50 for compatibility
+            if (Program.Settings.UseCustomSwf)
+            {
+                var root = doc.DocumentElement;
+                if (root != null && root.NamespaceURI.Contains("51.0"))
+                {
+                    root.SetAttribute("xmlns", "http://ns.adobe.com/air/application/50.0");
+                }
+            }
+            else
+            {
+                // Reset to original AIR 51.0 namespace for original SWF
+                var root = doc.DocumentElement;
+                if (root != null && root.NamespaceURI.Contains("50.0"))
+                {
+                    root.SetAttribute("xmlns", "http://ns.adobe.com/air/application/51.0");
+                }
+            }
+            
             doc["application"]["id"].InnerText = $"com.sulake.habboair.{avatarId}";
             doc["application"]["initialWindow"]["title"].InnerText = $"Habbo";
             doc.Save(appXmlPath);
@@ -55,6 +76,7 @@ namespace HabboLauncher
         public static void LaunchFlashClient(string server, string ticket, bool withGEarth = true)
         {
             SetFlashApplicationId(ticket);
+            Task.Delay(1000).Wait();
 
             if (withGEarth && File.Exists(Program.Settings.GEarthPath))
             {
