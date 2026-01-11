@@ -24,27 +24,6 @@ namespace HabboLauncher
 
             var doc = new XmlDocument();
             doc.Load(appXmlPath);
-            
-            // Update AIR namespace version for custom SWF compatibility
-            // Custom SWFs like HabboAirPlus spoof as AIR 50 for compatibility
-            if (Program.Settings.UseCustomSwf)
-            {
-                var root = doc.DocumentElement;
-                if (root != null && root.NamespaceURI.Contains("51.0"))
-                {
-                    root.SetAttribute("xmlns", "http://ns.adobe.com/air/application/50.0");
-                }
-            }
-            else
-            {
-                // Reset to original AIR 51.0 namespace for original SWF
-                var root = doc.DocumentElement;
-                if (root != null && root.NamespaceURI.Contains("50.0"))
-                {
-                    root.SetAttribute("xmlns", "http://ns.adobe.com/air/application/51.0");
-                }
-            }
-            
             doc["application"]["id"].InnerText = $"com.sulake.habboair.{avatarId}";
             doc["application"]["initialWindow"]["title"].InnerText = $"Habbo";
             doc.Save(appXmlPath);
@@ -52,18 +31,49 @@ namespace HabboLauncher
 
         public static void ChangeFlashSwf()
         {
+            // Safety check - ensure data is available
+            if (Program.Updater.lastCheckData == null || string.IsNullOrEmpty(Program.Updater.lastCheckData.FlashWindowsVersion))
+            {
+                return;
+            }
+
             var extractedPath = Path.Combine(Program.AppCacheDir, "downloads", "air", Program.Updater.lastCheckData.FlashWindowsVersion);
+            
+            // Make sure the directory exists
+            if (!Directory.Exists(extractedPath))
+            {
+                return;
+            }
+
             var swfPath = Path.Combine(extractedPath, "HabboAir.swf");
             var backupSwfFile = Path.Combine(extractedPath, "HabboAir.original.swf");
             var customSwfFile = Path.Combine(extractedPath, "HabboAir.custom.swf");
+            
+            // Backup paths for application.xml
+            var appXmlPath = Path.Combine(extractedPath, "META-INF", "AIR", "application.xml");
+            var backupAppXmlFile = Path.Combine(extractedPath, "META-INF", "AIR", "application.original.xml");
+            
+            // Create backup of original application.xml if it doesn't exist
+            if (File.Exists(appXmlPath) && !File.Exists(backupAppXmlFile))
+            {
+                File.Copy(appXmlPath, backupAppXmlFile);
+            }
 
             if (!Program.Settings.UseCustomSwf)
             {
+                // Restore original SWF
                 if (File.Exists(backupSwfFile))
                 {
                     File.Copy(backupSwfFile, swfPath, true);
                 }
+                // Original SWF uses modified application.xml (handled by SetFlashApplicationId)
                 return;
+            }
+
+            // Using custom SWF - restore original application.xml for compatibility
+            if (File.Exists(backupAppXmlFile))
+            {
+                File.Copy(backupAppXmlFile, appXmlPath, true);
             }
 
             if (File.Exists(customSwfFile))
@@ -75,7 +85,16 @@ namespace HabboLauncher
 
         public static void LaunchFlashClient(string server, string ticket, bool withGEarth = true)
         {
-            SetFlashApplicationId(ticket);
+            // Apply custom SWF before launching if configured
+            ChangeFlashSwf();
+            
+            // Only modify application.xml for original SWF (for multi-instance support)
+            // For custom SWF, run with default Habbo settings like the regular launcher
+            if (!Program.Settings.UseCustomSwf)
+            {
+                SetFlashApplicationId(ticket);
+            }
+            
             Task.Delay(1000).Wait();
 
             if (withGEarth && File.Exists(Program.Settings.GEarthPath))

@@ -106,9 +106,18 @@ namespace HabboLauncher
             var swfPath = Path.Combine(extractedPath, "HabboAir.swf");
             var backupSwfFile = Path.Combine(extractedPath, "HabboAir.original.swf");
 
-            if (File.Exists(swfPath))
+            // Backup original SWF
+            if (File.Exists(swfPath) && !File.Exists(backupSwfFile))
             {
                 File.Copy(swfPath, backupSwfFile);
+            }
+
+            // Backup original application.xml for custom SWF compatibility
+            var appXmlPath = Path.Combine(extractedPath, "META-INF", "AIR", "application.xml");
+            var backupAppXmlFile = Path.Combine(extractedPath, "META-INF", "AIR", "application.original.xml");
+            if (File.Exists(appXmlPath) && !File.Exists(backupAppXmlFile))
+            {
+                File.Copy(appXmlPath, backupAppXmlFile);
             }
 
             versionCache.Installations.Add(new Installation
